@@ -1,0 +1,33 @@
+[workspace]
+resolver = "3"
+members = ["demo", "tlsn-prover"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+futures = "0.3"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+pest = "2"
+pest_derive = "2"
+pin-project-lite = "0.2"
+serde = { version = "1", features = ["derive"] }
+smol = "2"
+thiserror = "2"
+tracing = "0.1"
+salvo = { version = "0.93", default-features = false, features = [
+  "http1",
+  "server",
+  "quinn",
+  "rustls",
+  "aws-lc-rs",
+  "affix-state",
+  "serve-static",
+] }
+tlsn = { git = "https://github.com/neotheprogramist/tlsn", branch = "feat/poseidon-hash-impl", default-features = false }
