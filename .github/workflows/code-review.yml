@@ -1,0 +1,29 @@
+name: Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          direct_prompt: |
+            Review the changes in this pull request. Focus on:
+            - correctness bugs
+            - security issues
+            - logic errors
+
+            Post findings as inline PR comments on the relevant lines.
+            Skip style nits and formatting — only flag real problems.
+            Use /code-review --comment to post the findings.
