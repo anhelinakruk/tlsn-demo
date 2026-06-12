@@ -127,6 +127,10 @@ fn apply_disclosure(
         DisclosureAction::Reveal => direction.apply_reveal(builders.prove_config, range)?,
         DisclosureAction::Commit => direction.apply_commit(builders.transcript_commit_config, range)?,
     }
+    let preview = match action {
+        DisclosureAction::Reveal => preview_range(source, range),
+        DisclosureAction::Commit => "<committed>".to_string(),
+    };
     info!(
         direction = direction.label(),
         action = action.label(),
@@ -134,7 +138,7 @@ fn apply_disclosure(
         label,
         range_start = range.start,
         range_end = range.end,
-        preview = %preview_range(source, range),
+        preview = %preview,
         "prover.reveal.range"
     );
     Ok(())
