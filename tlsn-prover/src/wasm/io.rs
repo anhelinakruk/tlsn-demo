@@ -43,9 +43,9 @@ pub struct WebTransportIo {
     close_state: CloseState,
 }
 
-// Safety: WASM is single-threaded; this runs in one dedicated Worker.
+// Safety: this type must never be accessed from multiple threads; it's only `Send` to satisfy
+// downstream trait bounds while remaining confined to a single WASM worker.
 unsafe impl Send for WebTransportIo {}
-unsafe impl Sync for WebTransportIo {}
 
 impl WebTransportIo {
     pub fn from_bidi(stream: WebTransportBidirectionalStream) -> Result<Self, JsValue> {
