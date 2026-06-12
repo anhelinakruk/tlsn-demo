@@ -4,22 +4,22 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-async-compat = "0.2"
-chrono = "0.4"
-salvo-http3 = { version = "0.7", features = ["quinn"] }
+async-compat.workspace = true
+chrono.workspace = true
 futures.workspace = true
-serde_json = "1"
+hex.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
 salvo.workspace = true
+salvo-http3.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
 tlsn = { workspace = true, features = ["mozilla-certs"] }
 tlsn-prover = { path = "../tlsn-prover" }
-thiserror.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
 tracing.workspace = true
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rcgen = "0.13"
-hex = "0.4"
-sha2 = "0.10"
-tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net", "io-util"] }
-tokio-rustls = "0.26"
-rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
-webpki-roots = "0.26"
+tracing-subscriber.workspace = true
+webpki-roots.workspace = true
