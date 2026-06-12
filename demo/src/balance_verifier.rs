@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Range, sync::Arc};
+use std::collections::HashMap;
 
 use futures::{AsyncRead, AsyncWrite, channel::oneshot};
 use thiserror::Error;
@@ -9,7 +9,7 @@ use tlsn::{
 };
 use tlsn_prover::{
     SmolRuntime,
-    parser::redacted::{Body, Response, parse_response},
+    parser::redacted::{Body, Response},
     transport::Runtime,
 };
 
@@ -54,10 +54,18 @@ pub enum BalanceVerifyError {
     SessionDriverCancelled,
 }
 
+/// Runs the verifier side of the session.
+///
+/// The outer `Err` covers MPC-level failures (policy rejection, a cancelled
+/// session driver, tlsn errors) — at that point there is no socket to talk back
+/// over, and the prover already learns of the failure from the protocol. Once
+/// the MPC session completes the socket is recovered, so post-session validation
+/// (server name, balance extraction) is returned as the inner `Result`, letting
+/// the caller report a clean reason to the prover.
 pub async fn verify_balance<T>(
     config: VerifierConfig,
     socket: T,
-) -> Result<(T, BalanceOutput), BalanceVerifyError>
+) -> Result<(T, Result<BalanceOutput, BalanceVerifyError>), BalanceVerifyError>
 where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
@@ -95,22 +103,25 @@ where
         .map_err(|_| BalanceVerifyError::SessionDriverCancelled)
         .and_then(|r| r.map_err(BalanceVerifyError::Tlsn))?;
 
-    let server_name = output
-        .server_name
-        .ok_or_else(|| BalanceVerifyError::MissingBodyField { key: "server_name".into() })?;
-    if server_name.to_string() != "swissbank.tlsnotary.org" {
-        return Err(BalanceVerifyError::ServerName {
-            expected: "swissbank.tlsnotary.org".into(),
-            actual: server_name.to_string(),
-        });
-    }
+    let validation = (move || {
+        let server_name = output
+            .server_name
+            .ok_or_else(|| BalanceVerifyError::MissingBodyField { key: "server_name".into() })?;
+        if server_name.to_string() != "swissbank.tlsnotary.org" {
+            return Err(BalanceVerifyError::ServerName {
+                expected: "swissbank.tlsnotary.org".into(),
+                actual: server_name.to_string(),
+            });
+        }
 
-    let transcript = output
-        .transcript
-        .ok_or_else(|| BalanceVerifyError::MissingBodyField { key: "transcript".into() })?;
+        let transcript = output
+            .transcript
+            .ok_or_else(|| BalanceVerifyError::MissingBodyField { key: "transcript".into() })?;
 
-    let balance_output = extract_balance(&transcript)?;
-    Ok((socket, balance_output))
+        extract_balance(&transcript)
+    })();
+
+    Ok((socket, validation))
 }
 
 fn protocol_policy(protocol: &TlsCommitProtocolConfig) -> Result<(), String> {

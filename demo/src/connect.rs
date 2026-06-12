@@ -12,16 +12,16 @@ use serde::Serialize;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::info;
 
-use crate::balance_verifier::{BalanceVerifyError, BalanceOutput, verify_balance};
+use crate::balance_verifier::{BalanceVerifyError, verify_balance};
 
 const MAX_PREAMBLE_BYTES: usize = 256;
+// Must match MAX_FRAME_BYTES in tlsn-prover/src/wasm/prover.rs — both sides frame the same way.
 const MAX_FRAME_BYTES: usize = 1 << 20;
 
 #[derive(Debug, Clone)]
 pub struct ProxyConfig {
     pub allowed_target: SocketAddr,
     pub allowed_host: String,
-    pub server_cert_der: Vec<u8>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -190,19 +190,34 @@ where
 {
     use futures::AsyncWriteExt as _;
 
-    let (mut io, output) = verify_balance(create_verifier_config(proxy_config), Compat::new(stream)).await?;
+    // The outer error covers MPC-level failures (the prover already learns of
+    // those from the protocol). Post-session validation failures come back as the
+    // inner `Err`, with the socket recovered, so we can report a clean reason to
+    // the prover instead of dropping the stream (which surfaces as "unexpected
+    // end of file" on its side).
+    let (mut io, result) = verify_balance(create_verifier_config(proxy_config), Compat::new(stream)).await?;
 
-    info!(
-        chf = %output.chf_balance,
-        timestamp = %output.last_audit,
-        "demo.balance.verified"
-    );
+    match result {
+        Ok(output) => {
+            info!(
+                chf = %output.chf_balance,
+                timestamp = %output.last_audit,
+                "demo.balance.verified"
+            );
+            let outcome = VerificationOutcome::Success {
+                chf: &output.chf_balance,
+                last_audit: &output.last_audit,
+            };
+            write_json_frame(&mut io, &outcome).await?;
+        }
+        Err(err) => {
+            tracing::warn!(error = %err, "demo.balance.rejected");
+            let reason = err.to_string();
+            let outcome = VerificationOutcome::Failure { reason: &reason };
+            write_json_frame(&mut io, &outcome).await?;
+        }
+    }
 
-    let outcome = VerificationOutcome::Success {
-        chf: &output.chf_balance,
-        timestamp: &output.last_audit,
-    };
-    write_json_frame(&mut io, &outcome).await?;
     io.close().await?;
     Ok(())
 }
@@ -216,7 +231,7 @@ fn create_verifier_config(_proxy_config: &ProxyConfig) -> tlsn::config::verifier
 }
 
 async fn proxy_connect<R, W>(
-    mut wt_recv: R,
+    wt_recv: R,
     wt_send: W,
     proxy_config: &ProxyConfig,
     host: String,
@@ -303,7 +318,7 @@ impl<R: AsyncRead + Unpin + Send> AsyncRead for ChainedRead<R> {
 #[serde(tag = "status")]
 enum VerificationOutcome<'a> {
     #[serde(rename = "success")]
-    Success { chf: &'a str, timestamp: &'a str },
+    Success { chf: &'a str, last_audit: &'a str },
     #[serde(rename = "failure")]
     Failure { reason: &'a str },
 }

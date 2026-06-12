@@ -17,6 +17,9 @@ use wasm_bindgen::prelude::*;
 use web_sys::WebTransportBidirectionalStream;
 
 use super::{WasmRuntime, io::WebTransportIo};
+
+// Must match MAX_FRAME_BYTES in demo/src/connect.rs — both sides frame the same way.
+const MAX_FRAME_BYTES: usize = 1 << 20;
 use crate::{
     Error,
     prover::{Prover as CoreProver, ProverConfigBundle},
@@ -41,14 +44,14 @@ pub struct JsProverInputs {
 #[serde(rename_all = "camelCase")]
 pub struct JsProverOutput {
     pub chf_balance: String,
-    pub timestamp: String,
+    pub last_audit: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 enum VerificationOutcome {
     #[serde(rename = "success")]
-    Success { chf: String, timestamp: String },
+    Success { chf: String, last_audit: String },
     #[serde(rename = "failure")]
     Failure { reason: String },
 }
@@ -123,8 +126,6 @@ fn build_prover_config(inputs_json: &str) -> Result<ProverConfigBundle, Error> {
 }
 
 async fn read_verification_outcome(io: &mut WebTransportIo) -> Result<JsProverOutput, Error> {
-    const MAX_FRAME_BYTES: usize = 1 << 20;
-
     let mut len_buf = [0u8; 4];
     io.read_exact(&mut len_buf).await?;
     let len = u32::from_be_bytes(len_buf) as usize;
@@ -135,8 +136,8 @@ async fn read_verification_outcome(io: &mut WebTransportIo) -> Result<JsProverOu
     let mut payload = vec![0u8; len];
     io.read_exact(&mut payload).await?;
     match serde_json::from_slice::<VerificationOutcome>(&payload)? {
-        VerificationOutcome::Success { chf, timestamp } => {
-            Ok(JsProverOutput { chf_balance: chf, timestamp })
+        VerificationOutcome::Success { chf, last_audit } => {
+            Ok(JsProverOutput { chf_balance: chf, last_audit })
         }
         VerificationOutcome::Failure { reason } => Err(Error::VerifierPolicyRejected(reason)),
     }

@@ -41,6 +41,18 @@ pub struct KeyValueCommitConfig {
     pub commitment_length: Option<usize>,
 }
 
+impl KeyValueCommitConfig {
+    /// Range of bytes committed for the value. When `commitment_length` is set,
+    /// the value range is padded to that fixed width (or kept as-is if already
+    /// longer) so the commitment doesn't leak the value's actual length.
+    fn value_range(&self, value: &Range<usize>) -> Range<usize> {
+        match self.commitment_length {
+            Some(len) if value.end - value.start < len => value.start..value.start + len,
+            _ => value.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RevealConfig {
@@ -123,7 +135,7 @@ fn apply_disclosure(
         range_start = range.start,
         range_end = range.end,
         preview = %preview_range(source, range),
-        "zktls.reveal.range"
+        "prover.reveal.range"
     );
     Ok(())
 }
@@ -229,7 +241,8 @@ where
         },
         |rule, (key, value)| {
             apply_disclosure(direction, DisclosureAction::Reveal, "body-key", &rule.keypath, &key.with_quotes_and_colon(), source, builders)?;
-            apply_disclosure(direction, DisclosureAction::Commit, "body-value", &rule.keypath, value, source, builders)
+            let committed = rule.value_range(value);
+            apply_disclosure(direction, DisclosureAction::Commit, "body-value", &rule.keypath, &committed, source, builders)
         },
     )
 }
