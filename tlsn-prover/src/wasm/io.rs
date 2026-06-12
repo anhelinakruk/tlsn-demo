@@ -139,24 +139,26 @@ impl AsyncWrite for WebTransportIo {
             match &mut self.write_state {
                 WriteState::Writing(fut) => match fut.poll_unpin(cx) {
                     Poll::Pending => return Poll::Pending,
-                    Poll::Ready(Err(e)) => return Poll::Ready(Err(js_to_io(e))),
-                    Poll::Ready(Ok(_)) => {
+                    Poll::Ready(Err(e)) => {
                         self.write_state = WriteState::Idle;
+                        return Poll::Ready(Err(js_to_io(e)));
+                    }
+                    Poll::Ready(Ok(n)) => {
+                        self.write_state = WriteState::Idle;
+                        return Poll::Ready(Ok(n));
                     }
                 },
                 WriteState::Idle => {
+                    let n = buf.len();
                     let array = Uint8Array::from(buf);
                     let promise = self.writer.write_with_chunk(&array);
-                    self.write_state =
-                        WriteState::Writing(JsFuture::from(promise).boxed_local());
-                    let n = buf.len();
-                    // Drive the write to completion so backpressure is respected,
-                    // but return the count immediately (the future will finish next poll).
-                    return Poll::Ready(Ok(n));
+                    self.write_state = WriteState::Writing(
+                        async move { JsFuture::from(promise).await.map(|_| n) }.boxed_local(),
+                    );
+                    // Don't report bytes written until the JS promise resolves.
                 }
             }
         }
-    }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
