@@ -26,7 +26,8 @@ enum ReadState {
 
 enum WriteState {
     Idle,
-    Writing(LocalBoxFuture<'static, Result<JsValue, JsValue>>),
+    // Resolves when the JS WritableStream write completes, returning the number of bytes written.
+    Writing(LocalBoxFuture<'static, Result<usize, JsValue>>),
 }
 
 enum CloseState {
