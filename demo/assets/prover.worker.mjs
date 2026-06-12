@@ -1,4 +1,4 @@
-import init, { Prover, initialize } from "./wasm/zktls.js";
+import init, { Prover, initialize } from "./wasm/prover.js";
 import { event } from "./log.mjs";
 import { installWorkerErrorForwarder } from "./flow.mjs";
 
@@ -63,20 +63,20 @@ function buildProverInputs(config) {
 }
 
 async function installSpawnBlobPatch() {
-  const ZKTLS_ABS = new URL("/assets/wasm/zktls.js", location.origin).href;
+  const PROVER_ABS = new URL("/assets/wasm/prover.js", location.origin).href;
 
-  const zktlsText = await fetch(ZKTLS_ABS).then((r) => r.text());
-  const match = zktlsText.match(/['"](\.[^'"]*web-spawn[^'"]*spawn\.js)['"]/);
-  if (!match) throw new Error("could not find spawn.js path in zktls.js");
-  const SPAWN_PATH = new URL(match[1], ZKTLS_ABS).href;
+  const proverText = await fetch(PROVER_ABS).then((r) => r.text());
+  const match = proverText.match(/['"](\.[^'"]*web-spawn[^'"]*spawn\.js)['"]/);
+  if (!match) throw new Error("could not find spawn.js path in prover.js");
+  const SPAWN_PATH = new URL(match[1], PROVER_ABS).href;
 
   let text = await fetch(SPAWN_PATH).then((r) => r.text());
 
   text = text
-    .replaceAll("'../../../zktls.js'", `'${ZKTLS_ABS}'`)
-    .replaceAll('"../../../zktls.js"', `"${ZKTLS_ABS}"`)
-    .replaceAll("'../../..'", `'${ZKTLS_ABS}'`)
-    .replaceAll('"../../.."', `"${ZKTLS_ABS}"`);
+    .replaceAll("'../../../prover.js'", `'${PROVER_ABS}'`)
+    .replaceAll('"../../../prover.js"', `"${PROVER_ABS}"`)
+    .replaceAll("'../../..'", `'${PROVER_ABS}'`)
+    .replaceAll('"../../.."', `"${PROVER_ABS}"`);
 
   text = text.replace(
     /new URL\(\s*'\.\/spawn\.js',\s*import\.meta\.url\s*\)/g,
@@ -100,47 +100,47 @@ async function installSpawnBlobPatch() {
 }
 
 async function runProve(config) {
-  event("zktls.worker.wasm.init.start");
+  event("prover.worker.wasm.init.start");
   await init();
-  event("zktls.worker.wasm.init.done");
+  event("prover.worker.wasm.init.done");
 
-  event("zktls.worker.pool.start");
+  event("prover.worker.pool.start");
   await installSpawnBlobPatch();
   await initialize();
-  event("zktls.worker.pool.ready");
+  event("prover.worker.pool.ready");
 
-  event("zktls.transport.session.opening");
+  event("prover.transport.session.opening");
   const session = new WebTransport(config.connectUrl, {
     serverCertificateHashes: [{ algorithm: "sha-256", value: hexToBytes(config.certHashHex) }],
   });
   try {
     await session.ready;
-    event("zktls.transport.session.ready");
+    event("prover.transport.session.ready");
 
-    event("zktls.transport.streams.creating");
+    event("prover.transport.streams.creating");
     const verifierStream = await session.createBidirectionalStream();
     const proxyStream = await session.createBidirectionalStream();
     await writePreamble(verifierStream, "VERIFY\n");
     await writePreamble(proxyStream, "CONNECT swissbank.tlsnotary.org:443\n");
-    event("zktls.transport.streams.preambles_written");
+    event("prover.transport.streams.preambles_written");
 
     const prover = new Prover();
     const inputsJson = JSON.stringify(buildProverInputs(config));
 
-    event("zktls.prover.prove_streams.start");
+    event("prover.prove_streams.start");
     const output = await prover.prove_streams(inputsJson, verifierStream, proxyStream);
-    event("zktls.prover.prove_streams.done");
+    event("prover.prove_streams.done");
 
     return {
       chfBalance: output.chfBalance,
-      timestamp: output.timestamp,
+      lastAudit: output.lastAudit,
     };
   } finally {
     try {
       await session.close({ closeCode: 0, reason: "prove-done" });
-      event("zktls.transport.session.closed");
+      event("prover.transport.session.closed");
     } catch (err) {
-      event("zktls.transport.session.close_failed", {
+      event("prover.transport.session.close_failed", {
         message: err?.message || String(err),
       });
     }

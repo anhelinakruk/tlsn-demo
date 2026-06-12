@@ -1,8 +1,6 @@
 pub mod io;
 pub mod prover;
 
-use std::{future::Future, pin::Pin, sync::Arc};
-
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 

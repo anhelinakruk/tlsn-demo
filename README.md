@@ -1,4 +1,4 @@
-# zktls-swiss-demo
+# prover-swiss-demo
 
 A TLS notarization (TLSNotary) demo. It cryptographically proves the CHF balance
 of an account at `swissbank.tlsnotary.org`, disclosing to the verifier only the
@@ -57,12 +57,12 @@ RUSTUP_TOOLCHAIN=nightly-2025-07-14 \
   cargo build --release --target wasm32-unknown-unknown -p tlsn-prover
 
 wasm-bindgen --target web \
-  --out-name zktls \
+  --out-name prover \
   --out-dir demo/assets/wasm \
   target/wasm32-unknown-unknown/release/tlsn_prover.wasm
 ```
 
-Produces `demo/assets/wasm/zktls.js` + `zktls_bg.wasm`, which the server serves
+Produces `demo/assets/wasm/prover.js` + `prover_bg.wasm`, which the server serves
 statically. Re-run after any change in `tlsn-prover/`.
 
 > Note: the WASM build links a ~39 MB binary and needs plenty of free disk space.
@@ -79,13 +79,13 @@ cargo build --release -p demo
 cargo run --release -p demo
 ```
 
-On startup the server resolves `swissbank.tlsnotary.org:443`, fetches its cert,
-and listens on `0.0.0.0:8444` (QUIC/HTTP-3 + TCP, self-signed TLS).
+On startup the server resolves `swissbank.tlsnotary.org:443` (the allowed proxy
+target) and listens on `0.0.0.0:8444` (QUIC/HTTP-3 + TCP, self-signed TLS).
 
 Open in **Chrome**:
 
 ```
-https://localhost:8444/zktls
+https://localhost:8444/prover
 ```
 
 Click the prove button and watch the steps: `init → pool → connect → streams →
@@ -115,11 +115,11 @@ separate code path:
 - **BLAKE3** — natively bit/word-oriented (XOR/ADD/rotations) → a **cheap** circuit,
   fits more commitments and is faster. Not SNARK-friendly.
 
-Keep `commitBodyFields` + `commitHeaders` in `demo/assets/zktls.worker.mjs` short.
+Keep `commitBodyFields` + `commitHeaders` in `demo/assets/prover.worker.mjs` short.
 Current config: 2 POSEIDON2 commitments (`authorization` + `.account_id`).
 
 > After changing `hash_alg` or the commitment config, rebuild the WASM (Build
-> section). Changing only `commitBodyFields` in `zktls.worker.mjs` does not require
+> section). Changing only `commitBodyFields` in `prover.worker.mjs` does not require
 > a WASM rebuild.
 
 ## Logs
@@ -139,15 +139,15 @@ tlsn-demo/
 ├── rust-toolchain.toml     # native toolchain (1.95.0)
 ├── demo/                   # server: verifier + proxy + static
 │   ├── src/
-│   │   ├── main.rs             # bootstrap, fetch bank cert, :8444
+│   │   ├── main.rs             # bootstrap, resolve bank addr, :8444
 │   │   ├── service.rs          # Salvo routing, QUIC/TCP, static assets
 │   │   ├── connect.rs          # WebTransport: dispatch VERIFY / CONNECT
 │   │   ├── balance_verifier.rs # verifier logic + balance validation
-│   │   └── tls.rs              # server self-signed cert + fetch bank cert
+│   │   └── tls.rs              # server self-signed cert (WebTransport)
 │   └── assets/
-│       ├── zktls.main.mjs      # UI, spawns the worker
-│       ├── zktls.worker.mjs    # prover: config, spawn.js blob patch
-│       └── wasm/               # wasm-bindgen output (zktls.js, zktls_bg.wasm)
+│       ├── prover.main.mjs      # UI, spawns the worker
+│       ├── prover.worker.mjs    # prover: config, spawn.js blob patch
+│       └── wasm/               # wasm-bindgen output (prover.js, prover_bg.wasm)
 └── tlsn-prover/            # prover crate (native rlib + WASM cdylib)
     └── src/
         ├── prover.rs          # core: setup → http exchange → generate_proof
