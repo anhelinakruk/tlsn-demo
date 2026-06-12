@@ -160,8 +160,24 @@ impl AsyncWrite for WebTransportIo {
             }
         }
 
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        match &mut self.write_state {
+            WriteState::Idle => Poll::Ready(Ok(())),
+            WriteState::Writing(fut) => match fut.poll_unpin(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Err(e)) => {
+                    self.write_state = WriteState::Idle;
+                    Poll::Ready(Err(js_to_io(e)))
+                }
+                Poll::Ready(Ok(_)) => {
+                    self.write_state = WriteState::Idle;
+                    Poll::Ready(Ok(()))
+                }
+            },
+        }
     }
 
     fn poll_close(
