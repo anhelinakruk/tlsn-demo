@@ -1,0 +1,35 @@
+name: Code Review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      contains(github.event.comment.body, '@claude') &&
+      (github.event.issue.pull_request != null || github.event.pull_request != null)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          direct_prompt: |
+            Review the changes in this pull request. Focus on:
+            - correctness bugs
+            - security issues
+            - logic errors
+
+            Post findings as inline PR comments on the relevant lines.
+            Skip style nits and formatting — only flag real problems.
+            Use /code-review --comment to post the findings.

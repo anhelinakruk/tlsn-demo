@@ -1,0 +1,5 @@
+target/
+demo/assets/wasm/
+.cert/
+.git/
+pkg/

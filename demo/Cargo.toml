@@ -1,0 +1,25 @@
+[package]
+name = "demo"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-compat.workspace = true
+chrono.workspace = true
+futures.workspace = true
+hex.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+salvo.workspace = true
+salvo-http3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tlsn = { workspace = true, features = ["mozilla-certs"] }
+tlsn-prover = { path = "../tlsn-prover" }
+tokio.workspace = true
+tokio-rustls.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+webpki-roots.workspace = true

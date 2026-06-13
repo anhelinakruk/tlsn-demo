@@ -1,0 +1,50 @@
+WHITESPACE = _{ " " | "\t" | "\r" | NEWLINE | "\0" }
+
+request  = _{ SOI ~ request_line ~ headers ~ body? ~ EOI }
+response = _{ SOI ~ status_line ~ headers ~ body? ~ EOI }
+
+method           =  { "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" }
+url              =  { (ASCII_ALPHANUMERIC | "/" | ":" | "." | "-" | "_" | "?" | "=" | "&" | "%" | "~" | "@")+ }
+protocol_version =  { "HTTP/" ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+status_code      =  { ASCII_DIGIT{3} }
+status           =  { ASCII_ALPHA_UPPER+ }
+request_line     = ${ method ~ " " ~ url ~ " " ~ protocol_version }
+status_line      = ${ protocol_version ~ " " ~ status_code ~ " " ~ status }
+
+headers      =  { header* }
+header       = ${ header_name ~ ": " ~ (header_value ~ NEWLINE)? }
+header_name  =  { (ASCII_ALPHANUMERIC | "-")+ }
+header_value =  { (ASCII_ALPHANUMERIC | "-" | ";" | " " | ":" | "," | "/" | "'" | "\"" | "." | "=" | "+" | "*" | "_" | "{" | "}")+ }
+
+body                = _{ body_full | body_redacted }
+body_full           = _{ chunked_body | content_length_body }
+chunk_size          = _{ ASCII_HEX_DIGIT+ }
+chunked_body        = _{ chunk_size ~ json ~ "0" }
+content_length_body = _{ json }
+body_redacted       = _{ "{"? ~ pair_redacted ~ (","? ~ pair_redacted)* ~ "}"? }
+
+json   = _{ object | array }
+pair   =  { quoted_key ~ ":" ~ value }
+object =  {
+    "{" ~ "}"
+  | "{" ~ pair ~ ("," ~ pair)* ~ "}"
+}
+array  =  {
+    "[" ~ "]"
+  | "[" ~ value ~ ("," ~ value)* ~ "]"
+}
+
+pair_redacted = ${ quoted_key ~ ":" ~ (value ~ !(":"))? }
+
+quoted_key = _{ "\"" ~ key ~ "\"" }
+key        =  { (ASCII_ALPHANUMERIC | "_")+ }
+value      = _{ object | array | quoted_string | number | boolean | null }
+boolean    =  { "true" | "false" }
+null       =  { "null" }
+
+quoted_string = _{ "\"" ~ string ~ "\"" }
+string        =  { (ASCII_ALPHANUMERIC | "@" | "." | "-" | "_" | " " | ":" | "/" | "," | ";" | "=" | "+" | "*" | "%" | "~" | "!" | "#" | "$" | "&" | "'" | "(" | ")" | "[" | "]" | "{" | "}" | "<" | ">" | "?" | "|" | "\\" | "^" | "`")* }
+
+number = @{
+    "-"? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
