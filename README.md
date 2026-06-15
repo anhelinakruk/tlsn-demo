@@ -19,7 +19,7 @@ Browser (prover, WASM)                  Demo server :8444 (verifier + proxy)
   │                                       │
   │  GET /balances (over MPC-TLS, via the proxy)
   │                                       │
-  │◀── JSON frame: {status, chf, timestamp}
+  │◀── JSON frame: {status, chf, last_audit}
   ▼
   UI: "✓ CHF balance: …  ·  as of: …"
 ```
@@ -27,12 +27,11 @@ Browser (prover, WASM)                  Demo server :8444 (verifier + proxy)
 ## Requirements
 
 - **Rust** — the native build uses `rust-toolchain.toml` (1.95.0). The WASM build
-  requires **`nightly-2025-07-14`** (newer nightlies don't report
-  `target_feature="atomics"`, which makes `parking_lot` panic in WASM):
+  requires **`nightly-2026-04-01`** (rustc 1.96.0-nightly):
   ```bash
-  rustup toolchain install nightly-2025-07-14
-  rustup component add rust-src --toolchain nightly-2025-07-14   # for build-std
-  rustup target add wasm32-unknown-unknown --toolchain nightly-2025-07-14
+  rustup toolchain install nightly-2026-04-01
+  rustup component add rust-src --toolchain nightly-2026-04-01   # for build-std
+  rustup target add wasm32-unknown-unknown --toolchain nightly-2026-04-01
   ```
 - **LLVM (Homebrew)** — `.cargo/config.toml` points at `/opt/homebrew/opt/llvm/bin`
   for `clang`/`llvm-ar` on the WASM target:
@@ -53,7 +52,7 @@ Browser (prover, WASM)                  Demo server :8444 (verifier + proxy)
 ### 1. WASM (prover)
 
 ```bash
-RUSTUP_TOOLCHAIN=nightly-2025-07-14 \
+RUSTUP_TOOLCHAIN=nightly-2026-04-01 \
   cargo build --release --target wasm32-unknown-unknown -p tlsn-prover
 
 wasm-bindgen --target web \

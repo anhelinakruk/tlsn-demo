@@ -26,7 +26,7 @@ function formatChf(raw) {
   const v = stripQuotes(raw).replaceAll("_", "");
   const n = Number(v);
   return Number.isFinite(n)
-    ? n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? n.toLocaleString("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : v;
 }
 

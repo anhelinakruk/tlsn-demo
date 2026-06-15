@@ -54,9 +54,6 @@ pub enum Error {
     TlsnTlsClientConfig(#[from] tlsn::config::tls::TlsConfigError),
 
     #[error(transparent)]
-    TlsnTlsCommitConfig(#[from] tlsn::config::tls_commit::TlsCommitConfigError),
-
-    #[error(transparent)]
     TlsnMpcTlsConfig(#[from] tlsn::config::tls_commit::mpc::MpcTlsConfigError),
 
     #[error(transparent)]

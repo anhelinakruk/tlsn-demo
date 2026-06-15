@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tlsn::{
     config::{
         tls::TlsClientConfig,
-        tls_commit::{TlsCommitConfig, mpc::MpcTlsConfig},
+        tls_commit::mpc::MpcTlsConfig,
     },
     connection::{DnsName, ServerName},
     hash::HashAlgId,
@@ -98,11 +98,10 @@ fn build_prover_config(inputs_json: &str) -> Result<ProverConfigBundle, Error> {
         .server_name(ServerName::Dns(dns))
         .root_store(root_store)
         .build()?;
-    let mpc_config = MpcTlsConfig::builder()
+    let tls_commit_config = MpcTlsConfig::builder()
         .max_sent_data(inputs.max_sent_data)
         .max_recv_data(inputs.max_recv_data)
         .build()?;
-    let tls_commit_config = TlsCommitConfig::builder().protocol(mpc_config).build()?;
 
     let method =
         Method::from_bytes(inputs.request_method.as_bytes()).map_err(hyper::http::Error::from)?;

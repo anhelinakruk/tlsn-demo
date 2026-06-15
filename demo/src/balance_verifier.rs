@@ -4,14 +4,11 @@ use futures::{AsyncRead, AsyncWrite, channel::oneshot};
 use thiserror::Error;
 use tlsn::{
     Session,
-    config::{tls_commit::TlsCommitProtocolConfig, verifier::VerifierConfig},
+    config::{tls_commit::mpc::MpcTlsConfig, verifier::VerifierConfig},
     transcript::PartialTranscript,
+    verifier::VerifierCommitStart,
 };
-use tlsn_prover::{
-    SmolRuntime,
-    parser::redacted::{Body, Response},
-    transport::Runtime,
-};
+use tlsn_prover::parser::redacted::{Body, Response};
 
 pub const MAX_SENT_DATA: usize = 1 << 12;
 pub const MAX_RECV_DATA: usize = 1 << 14;
@@ -74,17 +71,26 @@ where
     let (driver, handle) = session.split();
 
     let (socket_tx, socket_rx) = oneshot::channel();
-    SmolRuntime.spawn_detached(Box::pin(async move {
+    tokio::spawn(async move {
         let _ = socket_tx.send(driver.await.map_err(tlsn::Error::from));
-    }));
+    });
 
-    let verifier = verifier.commit().await?;
-    if let Err(reason) = protocol_policy(verifier.request().protocol()) {
+    let commit_start = verifier.commit().await?;
+
+    // We only support MPC-TLS; reject anything else.
+    let VerifierCommitStart::Mpc(verifier) = commit_start else {
+        return Err(BalanceVerifyError::ProtocolPolicy(
+            "expected MPC-TLS protocol".into(),
+        ));
+    };
+
+    if let Err(reason) = protocol_policy(verifier.config()) {
         verifier.reject(Some(&reason)).await?;
         return Err(BalanceVerifyError::ProtocolPolicy(reason));
     }
 
     let verifier = verifier.accept().await?.run().await?.verify().await?;
+
     if let Err(reason) = request_policy(
         verifier.request().server_identity(),
         verifier.request().reveal().is_some(),
@@ -124,21 +130,18 @@ where
     Ok((socket, validation))
 }
 
-fn protocol_policy(protocol: &TlsCommitProtocolConfig) -> Result<(), String> {
-    let TlsCommitProtocolConfig::Mpc(mpc) = protocol else {
-        return Err("expected MPC-TLS protocol".into());
-    };
-    if mpc.max_sent_data() > MAX_SENT_DATA {
+fn protocol_policy(config: &MpcTlsConfig) -> Result<(), String> {
+    if config.max_sent_data() > MAX_SENT_DATA {
         return Err(format!(
             "max_sent_data {} exceeds limit {}",
-            mpc.max_sent_data(),
+            config.max_sent_data(),
             MAX_SENT_DATA
         ));
     }
-    if mpc.max_recv_data() > MAX_RECV_DATA {
+    if config.max_recv_data() > MAX_RECV_DATA {
         return Err(format!(
             "max_recv_data {} exceeds limit {}",
-            mpc.max_recv_data(),
+            config.max_recv_data(),
             MAX_RECV_DATA
         ));
     }
@@ -185,6 +188,7 @@ fn body_text<'a>(
         Body::KeyValue { value, .. } => value.as_ref(),
         Body::Value(range) => Some(range),
     };
-    let range = range.ok_or_else(|| BalanceVerifyError::MissingFieldValue { key: key.to_owned() })?;
+    let range = range
+        .ok_or_else(|| BalanceVerifyError::MissingFieldValue { key: key.to_owned() })?;
     Ok(std::str::from_utf8(&data[range.clone()])?)
 }
