@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{future::IntoFuture, pin::Pin, sync::Arc};
 
-use futures::{AsyncRead, AsyncWrite, channel::oneshot, join};
+use futures::{AsyncRead, AsyncWrite, Future, channel::oneshot, join};
 use http_body_util::{BodyExt, Empty};
 use hyper::{Request, StatusCode, body::Bytes};
 use tlsn::{
@@ -9,7 +9,7 @@ use tlsn::{
         prove::ProveConfig,
         prover::ProverConfig as TlsnProverConfig,
         tls::TlsClientConfig,
-        tls_commit::TlsCommitConfig,
+        tls_commit::mpc::MpcTlsConfig,
     },
     hash::HashAlgId,
     transcript::{TranscriptCommitConfig, TranscriptCommitmentKind},
@@ -33,7 +33,7 @@ pub struct ProverOutput {
 pub struct ProverConfigBundle {
     pub runtime: Arc<dyn Runtime>,
     pub tls_client_config: TlsClientConfig,
-    pub tls_commit_config: TlsCommitConfig,
+    pub tls_commit_config: MpcTlsConfig,
     pub request: Request<Empty<Bytes>>,
     pub request_reveal_config: RevealConfig,
     pub response_reveal_config: RevealConfig,
@@ -108,13 +108,13 @@ impl Prover {
 async fn setup_and_connect<T, S>(
     runtime: Arc<dyn Runtime>,
     tls_client_config: TlsClientConfig,
-    tls_commit_config: TlsCommitConfig,
+    tls_commit_config: MpcTlsConfig,
     verifier_socket: T,
     server_socket: S,
 ) -> Result<
     (
         impl AsyncRead + AsyncWrite + Send + Unpin,
-        impl std::future::Future<Output = std::result::Result<tlsn::prover::Prover<tlsn::prover::state::Committed>, tlsn::Error>> + Send,
+        Pin<Box<dyn Future<Output = std::result::Result<tlsn::prover::Prover<tlsn::prover::state::Committed>, tlsn::Error>> + Send>>,
         SessionHandle,
         oneshot::Receiver<Result<T, Error>>,
     ),
@@ -136,8 +136,8 @@ where
     }));
 
     let prover = prover.commit(tls_commit_config).await?;
-    let (connection, prover_future) = prover.connect(tls_client_config, server_socket).await?;
-    Ok((connection, prover_future, handle, verifier_io_rx))
+    let (connection, prover_connected) = prover.connect(tls_client_config, server_socket)?;
+    Ok((connection, Box::pin(prover_connected.into_future()), handle, verifier_io_rx))
 }
 
 async fn execute_http_exchange<C>(

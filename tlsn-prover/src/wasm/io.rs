@@ -159,6 +159,7 @@ impl AsyncWrite for WebTransportIo {
                 }
             }
         }
+    }
 
     fn poll_flush(
         mut self: Pin<&mut Self>,

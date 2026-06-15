@@ -13,8 +13,8 @@ RUST_LOG=demo=trace cargo run --release -p demo
 
 ### WASM prover
 ```bash
-# Requires nightly-2025-07-14 (newer nightlies break parking_lot in WASM)
-RUSTUP_TOOLCHAIN=nightly-2025-07-14 \
+# Requires nightly-2026-04-01 (rustc 1.96.0-nightly)
+RUSTUP_TOOLCHAIN=nightly-2026-04-01 \
   cargo build --release --target wasm32-unknown-unknown -p tlsn-prover
 
 wasm-bindgen --target web \
@@ -33,7 +33,7 @@ cargo clippy -p demo
 
 ### Toolchain notes
 - Native builds use `rust-toolchain.toml` (1.95.0).
-- WASM requires `nightly-2025-07-14` + `rust-src` component + `wasm-bindgen-cli 0.2.123` (version must match exactly).
+- WASM requires `nightly-2026-04-01` (rustc 1.96.0-nightly) + `rust-src` component + `wasm-bindgen-cli 0.2.123` (version must match exactly).
 - LLVM must be installed (`brew install llvm`); `.cargo/config.toml` points at `/opt/homebrew/opt/llvm/bin`.
 
 ## Architecture

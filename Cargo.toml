@@ -24,6 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 hex = "0.4"
 rcgen = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
+rustls-pki-types = { version = "1.14", features = ["web"] }
 salvo-http3 = { version = "0.7", features = ["quinn"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -42,4 +43,4 @@ salvo = { version = "0.93", default-features = false, features = [
   "affix-state",
   "serve-static",
 ] }
-tlsn = { git = "https://github.com/neotheprogramist/tlsn", branch = "feat/poseidon-hash-impl", default-features = false }
+tlsn = { git = "https://github.com/neotheprogramist/tlsn", branch = "feat/poseidon-alpha15", default-features = false }

@@ -1,4 +1,4 @@
-FROM rust:1.93.0-alpine3.21 AS wasm-builder
+FROM rust:1.95.0-alpine3.21 AS wasm-builder
 
 RUN apk add --no-cache \
     build-base \
@@ -8,10 +8,10 @@ RUN apk add --no-cache \
     cmake \
     libressl-dev
 
-RUN rustup toolchain install nightly-2025-07-14 \
+RUN rustup toolchain install nightly-2026-04-01 \
       --component rust-src \
       --target wasm32-unknown-unknown \
-  && cargo +nightly-2025-07-14 install wasm-bindgen-cli \
+  && cargo +nightly-2026-04-01 install wasm-bindgen-cli \
        --version 0.2.123 --locked
 
 WORKDIR /app
@@ -20,7 +20,7 @@ COPY . .
 ENV CC_wasm32_unknown_unknown=/usr/bin/clang \
     AR_wasm32_unknown_unknown=/usr/bin/llvm-ar
 
-RUN RUSTUP_TOOLCHAIN=nightly-2025-07-14 \
+RUN RUSTUP_TOOLCHAIN=nightly-2026-04-01 \
     cargo build --release \
       --target wasm32-unknown-unknown \
       -p tlsn-prover \
@@ -30,7 +30,7 @@ RUN RUSTUP_TOOLCHAIN=nightly-2025-07-14 \
        --out-dir demo/assets/wasm \
        target/wasm32-unknown-unknown/release/tlsn_prover.wasm
 
-FROM rust:1.93.0-alpine3.21 AS planner
+FROM rust:1.95.0-alpine3.21 AS planner
 
 RUN apk add --no-cache build-base \
   && cargo install cargo-chef --locked
@@ -39,7 +39,7 @@ WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM rust:1.93.0-alpine3.21 AS builder
+FROM rust:1.95.0-alpine3.21 AS builder
 
 RUN apk add --no-cache build-base cmake libressl-dev \
   && cargo install cargo-chef --locked
